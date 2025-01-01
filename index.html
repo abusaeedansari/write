@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing Assistant with Focus Mode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+    <style>
+        /* CSS Variables for Light and Dark Themes */
+        :root {
+            --primary: #70C1B3; /* Pastel Mint Green */
+            --success: #B2F7EF; /* Light Green */
+            --warning: #FFD3B6; /* Light Orange */
+            --danger: #FF5E5E;  /* Strong Red */
+            --background: #FFF8F0; /* Off White */
+            --text: #333333; /* Dark Text */
+            --highlight-color: #FF5E5E; /* Strong Red for Current Word */
+            --new-line-color: #70C1B3; /* Matching Theme Color */
+            --button-bg: #70C1B3;
+            --button-text: #FFFFFF;
+            --toggle-bg: #70C1B3;
+            --toggle-text: #FFFFFF;
+            --progress-bg: #e0e0e0;
+            --progress-fill: #70C1B3;
+            --timer-bg: #f0f0f0;
+            --timer-text: #333333;
+            --container-bg: #FFFFFF;
+            --container-shadow: rgba(0, 0, 0, 0.1);
+            --info-gap: 1rem;
+            --progress-text-size: 1.3rem;
+        }
+
+        /* Dark Theme Overrides */
+        body.dark-theme {
+            --background: #1E1E2E;
+            --text: #FFFFFF;
+            --button-bg: #4A90E2;
+            --button-text: #FFFFFF;
+            --toggle-bg: #4A90E2;
+            --toggle-text: #FFFFFF;
+            --progress-bg: #555555;
+            --progress-fill: #4A90E2;
+            --timer-bg: #3A3A4D;
+            --timer-text: #FFFFFF;
+            --container-bg: #2E2E3A;
+            --container-shadow: rgba(0, 0, 0, 0.3);
+            --highlight-color: #FF5E5E;
+            --new-line-color: #4A90E2; 
+        }
+
+        /* High Contrast Theme Overrides */
+        body.high-contrast {
+            --background: #000000;
+            --text: #FFFF00;
+            --highlight-color: #FF0000;
+            --new-line-color: #FFFF00;
+            --button-bg: #FFFF00;
+            --button-text: #000000;
+            --toggle-bg: #FFFF00;
+            --toggle-text: #000000;
+            --progress-bg: #FFFF00;
+            --progress-fill: #FF0000;
+            --timer-bg: #000000;
+            --timer-text: #FFFF00;
+            --container-bg: #000000;
+            --container-shadow: rgba(255, 255, 0, 0.3);
+        }
+
+        /* Global Styles */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        body {
+            font-family: "Open Sans", sans-serif;
+            font-size: 18px; 
+            background-color: var(--background);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: background-color 0.3s, color 0.3s;
+            position: relative;
+            padding: 20px 0;
+            box-sizing: border-box;
+        }
+
+        /* Fade-in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .container {
+            margin: 0 auto; 
+            width: 90%;          /* Margin from left & right */
+            max-width: 1200px;  
+            background: var(--container-bg);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--container-shadow);
+            position: relative;
+            box-sizing: border-box;
+            animation: fadeIn 0.6s ease-in-out;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            text-align: left;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--toggle-bg);
+            color: var(--toggle-text);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s, color 0.3s, transform 0.2s;
+            z-index: 1000;
+        }
+        .theme-toggle:hover {
+            opacity: 0.85;
+            transform: scale(1.05);
+        }
+
+        /* Progress Bar and Text */
+        .progress-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .progress-container {
+            width: 100%;
+            background-color: var(--progress-bg);
+            border-radius: 25px;
+            overflow: hidden;
+            height: 20px;
+            margin-bottom: 0.5rem;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: var(--progress-fill);
+            transition: width 0.3s;
+        }
+        #progress-text {
+            font-size: var(--progress-text-size);
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        /* Top Info Bar */
+        .top-info {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--info-gap);
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        .top-info div {
+            flex: 1;
+            
+        }
+        .estimated-time {
+            font-size: 1.4rem; 
+            font-weight: 650;
+            color: var(--primary);
+            
+        }
+        .timer, .finish-time {
+            font-size: 1.3rem;
+            color: var(--timer-text);
+            background-color: var(--timer-bg);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            display: inline-block;
+            min-width: 160px;
+            text-align: center;
+        }
+
+        /* Controls Section */
+        .controls {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+        select, input[type="range"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            background-color: #fff;
+            color: var(--text);
+        }
+        body.dark-theme select,
+        body.dark-theme input[type="range"] {
+            background-color: #3A3A4D;
+            border: 2px solid #555555;
+            color: var(--text);
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+            outline: none;
+            margin-top: 0.5rem;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--primary);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        /* Writing Area */
+        .writing-area {
+            position: relative;
+            background: var(--background);
+            border-radius: 8px;
+            margin-top: 2rem;
+            height: 35vh; /* Reduced so bottom controls are fully visible */
+            overflow-y: auto;
+            border: 1px solid var(--text);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+        .text-content {
+            font-size: 30px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .current-word {
+            background-color: var(--highlight-color);
+            padding: 2px 5px;
+            border-radius: 4px;
+            color: var(--text);
+        }
+        .new-line-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background-color: var(--new-line-color);
+            border-radius: 50%;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Controls Bar */
+        .controls-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        body.dark-theme .controls-bar {
+            background: #3A3A4D;
+        }
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+        button {
+            padding: 0.6rem;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        .start-button{
+            padding: 12px 20px;
+            width: auto;
+            height: auto;
+            border-radius: 5px;
+            font: 1.1em sans-serif;
+            font-weight: 500;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        /* Textarea Styling */
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            resize: vertical;
+            background-color: #fff;
+            color: var(--text);
+            transition: background-color 0.3s, color 0.3s;
+            box-sizing: border-box;
+        }
+        body.dark-theme textarea {
+            background-color: #3A3A4D;
+            border: 2px solid #555555;
+            color: var(--text);
+        }
+
+        /* Writing Tips */
+        .writing-tips {
+            text-align: center;
+            font-style: italic;
+            color: var(--primary);
+            margin-top: 1rem;
+            min-height: 1.5em;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.4); 
+        }
+        .modal-content {
+            background-color: var(--background);
+            margin: 15% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+            max-width: 500px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        .modal-content h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        .modal-content p {
+            color: var(--text);
+            margin-bottom: 2rem;
+        }
+        .close-modal {
+            padding: 0.5rem 1rem;
+            background-color: var(--button-bg);
+            color: var(--button-text);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .close-modal:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* Focus Mode Styles */
+        body.focus-mode .theme-toggle,
+        body.focus-mode .top-info,
+        body.focus-mode .progress-section,
+        body.focus-mode #input-section,
+        body.focus-mode .controls:not(.controls-bar),
+        body.focus-mode .info-panel,
+        body.focus-mode .writing-tips {
+            display: none !important;
+        }
+        body.focus-mode .container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+            max-width: 100%;
+            box-shadow: none;
+            z-index: 2000;
+            overflow: hidden;
+            margin: 0;      /* remove side margins so it truly fills screen */
+            padding: 1rem;
+        }
+        body.focus-mode .writing-area {
+            height: 60vh;  /* A bit larger, but not full screen */
+            margin-top: 0;
+            border: none;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            padding: 1rem;
+        }
+        /* Keep controls bar static so it doesn't become a huge bar at bottom */
+        body.focus-mode .controls-bar {
+            position: static;
+            width: auto;
+            border-radius: 8px;
+            margin-top: 1rem;
+            background: #f8f9fa;
+            padding: 0.5rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 800px) {
+            .top-info {
+                flex-direction: column;
+                align-items: center;
+            }
+            .controls-bar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .info-panel {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .estimated-time {
+                font-size: 1.3rem;
+            }
+            .timer, .finish-time {
+                font-size: 1.1rem;
+            }
+            #progress-text {
+                margin-top: 0.5rem;
+                font-size: 1.1rem;
+            }
+            .writing-area {
+                height: 30vh; /* Smaller for smaller screens */
+            }
+            .controls {
+                flex-direction: column;
+            }
+        }
+
+        /* Improved Font Style Selector */
+        .control-group select {
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="5"><path fill="%23333333" d="M0 0l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 10px 5px;
+            padding-right: 30px;
+            background-color: var(--background);
+            color: var(--text);
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" title="Toggle Theme" onclick="toggleTheme()">🌓</button>
+    <div class="container">
+        <h1>Assistant</h1>
+        <div class="progress-section">
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div id="progress-text">Progress: 0%</div>
+        </div>
+        <div class="top-info">
+            <div class="estimated-time" id="estimated-time">Estimated Time: 0 minutes</div>
+            <div class="timer" id="timer">Elapsed Time: 00:00</div>
+            <div class="finish-time" id="finish-time">Finish By: --:-- AM/PM</div>
+        </div>
+        
+        <div id="input-section">
+            <textarea id="teacher-input" placeholder="Enter the text for students to practice..."></textarea>
+            <button class="start-button" onclick="openModal()">Start Writing</button>
+        </div>
+
+        <div id="practice-section" style="display: none;">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="font-style">Font Style</label>
+                    <select id="font-style" onchange="updateFont()">
+                        <option value="Arial">Regular</option>
+                        <option value="OpenDyslexic">Dyslexic Friendly</option>
+                        <option value="Comic Sans MS">Comic Sans</option>
+                        <option value="Monospace">Monospace</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="speed">Speed: <span id="speed-value">20 WPM</span></label>
+                    <input type="range" id="speed" min="10" max="100" value="20" oninput="updateSpeed()">
+                </div>
+                <div class="control-group">
+                    <label for="font-size">Font Size</label>
+                    <input type="range" id="font-size" min="24" max="48" value="30" oninput="updateFontSize()">
+                </div>
+            </div>
+
+            <div class="writing-area">
+                <div class="text-content" id="text-display"></div>
+            </div>
+
+            <div class="controls-bar">
+                <div class="button-group">
+                    <button onclick="previousWord()" title="Previous Word">⬅️</button>
+                    <button onclick="togglePlay()" id="play-pause" title="Pause">⏸️</button>
+                    <button onclick="nextWord()" title="Next Word">➡️</button>
+                    <button onclick="previousLine()" title="Previous Sentence">🔙</button>
+                    <button onclick="nextLine()" title="Next Sentence">🔜</button>
+                    <button onclick="resetPractice()" title="Reset">🔄</button>
+                    <button onclick="toggleFocusMode()" title="Toggle Focus Mode">🎯</button>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div id="current-speed">Current Speed: 20 WPM</div>
+            </div>
+
+            <div class="writing-tips" data-tip="Keep your letters neat and evenly spaced!"></div>
+        </div>
+    </div>
+
+    <!-- Modal for Handwriting Prompt -->
+    <div id="handwriting-modal" class="modal">
+        <div class="modal-content">
+            <h2>Get Ready!</h2>
+            <p>Please ensure you have neat and clean handwriting before starting the practice.</p>
+            <button class="close-modal" onclick="closeModal()">Start</button>
+        </div>
+    </div>
+
+    <script>
+        // State Variables
+        let currentText = '';
+        let lines = [];
+        let currentLineIndex = 0;
+        let currentWordIndex = 0;
+        let isPlaying = true;
+        let wordsInterval;
+        let currentTheme = 'light';
+        let writingTipInterval;
+        let timerInterval;
+        let elapsedTime = 0;
+        let startTime;
+        let finishTime;
+
+        const writingTips = [
+            "Keep your letters neat and evenly spaced!",
+            "Remember to maintain proper posture while writing!",
+            "Hold your pencil gently - don't grip too tight!",
+            "Take your time, neat writing is worth the effort!",
+            "Keep consistent spacing between words!",
+            "Make sure all your letters sit properly on the line!",
+            "Keep your letters the same size for neat handwriting!",
+            "Remember to dot your i's and cross your t's!"
+        ];
+
+        function updateWritingTip() {
+            const tip = writingTips[Math.floor(Math.random() * writingTips.length)];
+            document.querySelector('.writing-tips').textContent = tip;
+        }
+
+        function openModal() {
+            document.getElementById('handwriting-modal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('handwriting-modal').style.display = 'none';
+            startPractice();
+        }
+
+        function startPractice() {
+            currentText = document.getElementById('teacher-input').value;
+            if (!currentText.trim()) return;
+
+            lines = currentText.split('\n').filter(line => line.trim());
+            currentLineIndex = 0;
+            currentWordIndex = 0;
+            document.getElementById('input-section').style.display = 'none';
+            document.getElementById('practice-section').style.display = 'block';
+            updateEstimatedTime();
+            displayCurrentWord();
+            startWordHighlight();
+            writingTipInterval = setInterval(updateWritingTip, 7000);
+            startTimer();
+        }
+
+        function displayCurrentWord() {
+            const displayElement = document.getElementById('text-display');
+            if (currentLineIndex >= lines.length) {
+                displayElement.innerHTML = '';
+                return;
+            }
+            const currentLine = lines[currentLineIndex].trim();
+            const words = currentLine.split(' ');
+
+            if (words.length === 0) {
+                displayElement.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            lines.forEach((line, lineIdx) => {
+                const trimmedLine = line.trim();
+                const lineWords = trimmedLine.split(' ');
+                lineWords.forEach((word, wordIdx) => {
+                    if (lineIdx === currentLineIndex && wordIdx === currentWordIndex) {
+                        html += `<span class="current-word">${word}</span> `;
+                    } else {
+                        html += `${word} `;
+                    }
+                });
+                if (lineIdx < lines.length - 1) {
+                    html += `<span class="new-line-indicator"></span><br>`;
+                }
+            });
+
+            displayElement.innerHTML = html;
+            updateProgress();
+            scrollToCurrentWord();
+        }
+
+        function startWordHighlight() {
+            clearInterval(wordsInterval);
+            const speed = parseInt(document.getElementById('speed').value);
+            const msPerWord = (60 * 1000) / speed;
+
+            wordsInterval = setInterval(() => {
+                if (!isPlaying) return;
+
+                if (currentLineIndex >= lines.length) {
+                    clearInterval(wordsInterval);
+                    isPlaying = false;
+                    document.getElementById('play-pause').textContent = '🔄';
+                    clearInterval(writingTipInterval);
+                    stopTimer();
+                    return;
+                }
+
+                const currentLine = lines[currentLineIndex];
+                const words = currentLine.split(' ');
+
+                currentWordIndex++;
+                if (currentWordIndex >= words.length) {
+                    currentWordIndex = 0;
+                    currentLineIndex++;
+                    if (currentLineIndex >= lines.length) {
+                        clearInterval(wordsInterval);
+                        isPlaying = false;
+                        document.getElementById('play-pause').textContent = '🔄';
+                        clearInterval(writingTipInterval);
+                        stopTimer();
+                        return;
+                    }
+                }
+                displayCurrentWord();
+            }, msPerWord);
+        }
+
+        function togglePlay() {
+            if (isPlaying) {
+                isPlaying = false;
+                document.getElementById('play-pause').textContent = '▶️';
+                clearInterval(wordsInterval);
+                stopTimer();
+            } else {
+                isPlaying = true;
+                document.getElementById('play-pause').textContent = '⏸️';
+                startWordHighlight();
+                resumeTimer();
+            }
+        }
+
+        function previousWord() {
+            if (currentWordIndex > 0) {
+                currentWordIndex--;
+                displayCurrentWord();
+                adjustFinishTime();
+            } else if (currentLineIndex > 0) {
+                currentLineIndex--;
+                const previousLine = lines[currentLineIndex].trim();
+                currentWordIndex = previousLine.split(' ').length - 1;
+                displayCurrentWord();
+                adjustFinishTime();
+            }
+        }
+
+        function nextWord() {
+            const currentLine = lines[currentLineIndex].trim();
+            const words = currentLine.split(' ');
+            if (currentWordIndex < words.length - 1) {
+                currentWordIndex++;
+                displayCurrentWord();
+                adjustFinishTime();
+            } else if (currentLineIndex < lines.length - 1) {
+                currentLineIndex++;
+                currentWordIndex = 0;
+                displayCurrentWord();
+                adjustFinishTime();
+            }
+        }
+
+        function previousLine() {
+            if (currentLineIndex > 0) {
+                currentLineIndex--;
+                currentWordIndex = 0;
+                displayCurrentWord();
+                adjustFinishTime();
+            }
+        }
+
+        function nextLine() {
+            if (currentLineIndex < lines.length - 1) {
+                currentLineIndex++;
+                currentWordIndex = 0;
+                displayCurrentWord();
+                adjustFinishTime();
+            }
+        }
+
+        function resetPractice() {
+            clearInterval(wordsInterval);
+            clearInterval(writingTipInterval);
+            stopTimer();
+            currentLineIndex = 0;
+            currentWordIndex = 0;
+            isPlaying = true;
+            document.getElementById('play-pause').textContent = '⏸️';
+            displayCurrentWord();
+            startWordHighlight();
+            writingTipInterval = setInterval(updateWritingTip, 7000);
+            resetTimer();
+            updateEstimatedTime();
+        }
+
+        function updateProgress() {
+            const totalWords = lines.join(' ').split(' ').length;
+            const currentWords = 
+                lines.slice(0, currentLineIndex).join(' ').split(' ').length + currentWordIndex;
+            const progress = Math.min(Math.round((currentWords / totalWords) * 100), 100);
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+            document.getElementById('progress-text').textContent = `Progress: ${progress}%`;
+        }
+
+        function updateSpeed() {
+            const speed = document.getElementById('speed').value;
+            document.getElementById('speed-value').textContent = `${speed} WPM`;
+            document.getElementById('current-speed').textContent = `Current Speed: ${speed} WPM`;
+            updateEstimatedTime();
+            if (isPlaying) {
+                clearInterval(wordsInterval);
+                startWordHighlight();
+            }
+        }
+
+        function updateFont() {
+            const fontStyle = document.getElementById('font-style').value;
+            document.getElementById('text-display').style.fontFamily = fontStyle;
+        }
+
+        function updateFontSize() {
+            const fontSize = document.getElementById('font-size').value;
+            const textDisplay = document.getElementById('text-display');
+            textDisplay.style.fontSize = `${fontSize}px`;
+            textDisplay.style.lineHeight = `${Math.ceil(fontSize * 1.5)}px`;
+        }
+
+        function updateEstimatedTime() {
+            const speed = parseInt(document.getElementById('speed').value);
+            const totalWords = lines.join(' ').split(' ').length;
+            const estimatedMinutes = Math.ceil(totalWords / speed);
+            document.getElementById('estimated-time').childNodes[0].textContent = 
+                `Estimated Time: ${estimatedMinutes} minute${estimatedMinutes !== 1 ? 's' : ''}`;
+            calculateFinishTime(estimatedMinutes);
+        }
+
+        function calculateFinishTime(minutes) {
+            const now = new Date();
+            finishTime = new Date(now.getTime() + minutes * 60000);
+            const options = { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' };
+            document.getElementById('finish-time').textContent = 
+                `Finish By: ${finishTime.toLocaleTimeString('en-US', options)}`;
+        }
+
+        function toggleTheme() {
+            const themes = ['light', 'dark', 'high-contrast'];
+            currentTheme = themes[(themes.indexOf(currentTheme) + 1) % themes.length];
+            document.body.className = currentTheme === 'light' ? '' : `${currentTheme}-theme`;
+        }
+
+        function toggleFocusMode() {
+            document.body.classList.toggle("focus-mode");
+        }
+
+        function scrollToCurrentWord() {
+            const writingArea = document.querySelector('.writing-area');
+            const currentWordElement = document.querySelector('.current-word');
+            if (currentWordElement) {
+                const offsetTop = currentWordElement.offsetTop;
+                const offsetHeight = currentWordElement.offsetHeight;
+                writingArea.scrollTop = offsetTop - (writingArea.clientHeight / 2) + (offsetHeight / 2);
+            }
+        }
+
+        // Timer Functions
+        function startTimer() {
+            startTime = Date.now() - elapsedTime;
+            timerInterval = setInterval(() => {
+                elapsedTime = Date.now() - startTime;
+                document.getElementById('timer').textContent = `Elapsed Time: ${formatTime(elapsedTime)}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function resumeTimer() {
+            startTime = Date.now() - elapsedTime;
+            timerInterval = setInterval(() => {
+                elapsedTime = Date.now() - startTime;
+                document.getElementById('timer').textContent = `Elapsed Time: ${formatTime(elapsedTime)}`;
+            }, 1000);
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            elapsedTime = 0;
+            document.getElementById('timer').textContent = `Elapsed Time: 00:00`;
+            document.getElementById('finish-time').textContent = `Finish By: --:-- AM/PM`;
+        }
+
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${minutes}:${seconds}`;
+        }
+
+        function adjustFinishTime() {
+            const speed = parseInt(document.getElementById('speed').value);
+            const remainingWords = lines.slice(currentLineIndex).join(' ').split(' ').length - currentWordIndex;
+            const remainingMinutes = Math.ceil(remainingWords / speed);
+            const now = new Date();
+            finishTime = new Date(now.getTime() + remainingMinutes * 60000);
+            const options = { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' };
+            document.getElementById('finish-time').textContent = 
+                `Finish By: ${finishTime.toLocaleTimeString('en-US', options)}`;
+        }
+
+        // Initialize Default Settings
+        window.onload = function() {
+            updateFontSize();
+            updateWritingTip();
+        };
+
+        // Close modal when clicking outside the modal content
+        window.onclick = function(event) {
+            const modal = document.getElementById('handwriting-modal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+                startPractice();
+            }
+        };
+    </script>
+</body>
+</html>
